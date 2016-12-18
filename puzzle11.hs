@@ -134,6 +134,12 @@ apply m = checkDanger . applyUnsafe m
 fSuccess :: Facility -> Bool
 fSuccess (Facility _ is) = all (== 3) $ M.elems is
 
+facilityKey :: Facility -> (Floor, [(Floor, Floor)])
+facilityKey (Facility e is) = (e, sort $ mapMaybe getTuple $ M.toList is)
+  where
+    getTuple (Chip elt, f1) = Just (f1, fromJust $ M.lookup (Generator elt) is)
+    getTuple (Generator _, _) = Nothing
+
 data Tree node edge = Tree
   { treeNode :: node
   , treeBranches :: [(edge, Tree node edge)]
@@ -142,35 +148,45 @@ data Tree node edge = Tree
 uniqBy :: Ord b => (a -> b) -> [a] -> [a]
 uniqBy key = M.elems . M.fromList . map (\a -> (key a, a))
 
-moveTree :: Ord pos => (pos -> [move]) -> (move -> pos -> Maybe pos) -> pos -> Tree pos move
-moveTree generate apply start = snd $ mtc generate apply start S.empty
+fromListWithKeyFunc :: Ord k => (a -> k) -> [a] -> M.Map k a
+fromListWithKeyFunc f as =
+  M.fromList
+    [ (f a, a)
+    | a <- as ]
+
+moveTree :: (pos -> [move]) -> (move -> pos -> Maybe pos) -> pos -> Tree pos move
+moveTree generate apply start = mtc start
   where
-    mtc
-      :: Ord pos
-      => (pos -> [move])
-      -> (move -> pos -> Maybe pos)
-      -> pos
-      -> S.Set pos
-      -> (S.Set pos, Tree pos move)
-    mtc generate apply start seen = (seen'', Tree start children)
+    mtc start = Tree start children
       where
         childNodes =
-          uniqBy snd $
-          filter (not . flip S.member seen . snd) $
           catMaybes
             [ (move, ) <$> apply move start
             | move <- generate start ]
-        seen' = S.union seen (S.fromList $ map snd childNodes)
-        (children, seen'') = foldr go ([], seen') childNodes
-        go (move, childNode) (acc, oldSeen) = ((move, result) : acc, newSeen)
-          where
-            (newSeen, result) = mtc generate apply childNode oldSeen
+        children = map go childNodes
+        go (move, childNode) = (move, mtc childNode)
 
-level :: Int -> Tree node edge -> [node]
-level i = map (treeNode . fst) . levelT i
+fMoveTree :: Facility -> Tree Facility Move
+fMoveTree = moveTree moves apply
 
-levelT :: Int -> Tree node edge -> [(Tree node edge, [edge])]
-levelT 0 t = [(t, [])]
-levelT i t = do
-  (parent, path) <- levelT (i - 1) t
-  [(child, edge:path) | (edge, child) <- treeBranches parent ]
+levels :: (Ord pos, Ord key) => (pos -> key) -> Tree pos move -> [[pos]]
+levels posKey start =
+  map (map treeNode . fst) $ iterate (uncurry go) ([start], S.empty)
+  where
+    go roots seen = (nextRoots, seen')
+      where
+        nextRoots =
+          uniqBy (posKey . treeNode) (concatMap (map snd . treeBranches) roots)
+        seen' = S.union seen $ S.fromList $ map treeNode nextRoots
+
+demoFacility :: Facility
+demoFacility =
+  parse
+    [ "The first floor contains a hydrogen-compatible microchip and a lithium-compatible microchip."
+    , "The second floor contains a hydrogen generator."
+    , "The third floor contains a lithium generator."
+    , "The fourth floor contains nothing relevant."
+    ]
+
+readFacility :: IO Facility
+readFacility = fmap parse readLines
