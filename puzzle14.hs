@@ -1,16 +1,10 @@
-import Crypto.Hash
-
 import qualified Data.ByteString.UTF8 as U
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Set as S
 
-md5 :: U.ByteString -> Digest MD5
-md5 = hash
-
-hashStr :: String -> String
-hashStr = show . md5 . U.fromString
+import MD5
 
 -- cache all the things
 data Candidate = Candidate
@@ -37,7 +31,7 @@ stretch n f = f . stretch (n - 1) f
 mkCandidate :: Int -> String -> Int -> Candidate
 mkCandidate stretches salt idx = Candidate idx val fivers
   where
-    val = (stretch stretches hashStr) $ salt ++ show idx
+    val = (stretch stretches md5) $ salt ++ show idx
     fivers = S.fromList $ findRuns 5 val
 
 candSeq :: Int -> String -> [Candidate]

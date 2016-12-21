@@ -1,22 +1,19 @@
-import Crypto.Hash
-
 import Data.ByteString.UTF8 hiding (take)
 import Data.Maybe
 import Data.Monoid
 
-md5 :: ByteString -> Digest MD5
-md5 = hash
+import MD5
 
-getPCharHash :: Digest MD5 -> Maybe (Char, Char)
+getPCharHash :: String -> Maybe (Char, Char)
 getPCharHash hash =
-  case show hash of
+  case hash of
     '0':'0':'0':'0':'0':c:d:_ -> Just (c, d)
     _ -> Nothing
 
 getPChar :: ByteString -> Int -> Maybe (Char, Char)
 getPChar str i =
   let candidate = str <> fromString (show i)
-      hash = md5 candidate
+      hash = md5bs candidate
   in getPCharHash hash
 
 getPChars :: ByteString -> [(Char, Char)]
