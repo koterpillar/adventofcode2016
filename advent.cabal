@@ -3,8 +3,6 @@ version:             0.0.0
 synopsis:            Blah
 description: Blah
 homepage:            https://github.com/koterpillar/adventofcode2016
-license:             MIT
-license-file:        LICENSE
 author:              Alexey Kotlyarov
 maintainer:          a@koterpillar.com
 category:            System
