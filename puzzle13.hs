@@ -1,9 +1,10 @@
-{-# LANGUAGE TupleSections #-}
 import Data.Bits
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Set as S
+
+import Path
 
 
 data Direction
@@ -85,42 +86,6 @@ apply m g =
 
 gSuccess :: Grid -> Bool
 gSuccess grid = gPlayer grid == gTarget grid
-
-data Tree node edge = Tree
-  { treeNode :: node
-  , treeBranches :: [(edge, Tree node edge)]
-  }
-
-uniqBy :: Ord b => (a -> b) -> [a] -> [a]
-uniqBy key = M.elems . M.fromList . map (\a -> (key a, a))
-
-fromListWithKeyFunc :: Ord k => (a -> k) -> [a] -> M.Map k a
-fromListWithKeyFunc f as =
-  M.fromList
-    [ (f a, a)
-    | a <- as ]
-
-moveTree :: (pos -> [move]) -> (move -> pos -> Maybe pos) -> pos -> Tree pos move
-moveTree generate apply start = mtc start
-  where
-    mtc start = Tree start children
-      where
-        childNodes =
-          catMaybes
-            [ (move, ) <$> apply move start
-            | move <- generate start ]
-        children = map go childNodes
-        go (move, childNode) = (move, mtc childNode)
-
-levels :: (Ord pos, Ord key) => (pos -> key) -> Tree pos move -> [[pos]]
-levels posKey start =
-  map (map treeNode . fst) $ iterate (uncurry go) ([start], S.empty)
-  where
-    go roots seen = (nextRoots, seen')
-      where
-        nextRoots =
-          uniqBy (posKey . treeNode) (concatMap (map snd . treeBranches) roots)
-        seen' = S.union seen $ S.fromList $ map treeNode nextRoots
 
 gMoveTree :: Grid -> Tree Grid Move
 gMoveTree = moveTree moves apply
