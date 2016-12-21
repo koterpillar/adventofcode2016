@@ -1,13 +1,8 @@
 import Data.List
 import Data.List.Split
 
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
+import Utils
+
 
 isTriangle :: [Int] -> Bool
 isTriangle [a, b, c] = a + b > c && a + c > b && b + c > a

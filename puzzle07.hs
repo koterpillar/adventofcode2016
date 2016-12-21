@@ -2,13 +2,7 @@ import Data.List
 import Data.List.Split
 import Data.Maybe
 
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
+import Utils
 
 abba :: Eq a => [a] -> Bool
 abba lst@(a:b:c:d:_)

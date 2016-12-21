@@ -3,6 +3,8 @@ import Data.List.Split
 import qualified Data.Map as M
 import Data.Maybe
 
+import Utils
+
 
 type Bot = Int
 
@@ -75,14 +77,6 @@ doGive instr bot values =
 
 doGiveTo :: Place -> Value -> Factory -> Factory
 doGiveTo receiver value = M.insertWith (++) receiver [value]
-
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
 
 iterateMaybe :: (a -> Maybe a) -> a -> [a]
 iterateMaybe f a =

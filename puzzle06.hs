@@ -2,14 +2,8 @@ import Data.Function
 import Data.List
 import qualified Data.Map as M
 
+import Utils
 
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
 
 denoise :: [String] -> String
 denoise = map denoiseC . transpose

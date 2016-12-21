@@ -9,14 +9,8 @@ import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Set as S
 
+import Utils
 
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
 
 type Element = String
 

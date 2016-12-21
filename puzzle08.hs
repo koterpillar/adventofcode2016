@@ -1,6 +1,8 @@
 import Data.Bool
 import Data.List.Split
 
+import Utils
+
 data Screen = Screen
   { pixels :: [[Bool]]
   } deriving (Eq, Ord)
@@ -67,11 +69,3 @@ countPixels (Screen px) = sum $ map (sum . map (bool 0 1)) px
 
 go :: [String] -> Screen
 go = foldl (flip command) empty
-
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines

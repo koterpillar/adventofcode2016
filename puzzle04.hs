@@ -2,6 +2,8 @@ import Data.Function
 import Data.List
 import Data.List.Split
 
+import Utils
+
 isLL :: Char -> Bool
 isLL c = c >= 'a' && c <= 'z'
 
@@ -21,14 +23,6 @@ parseRoom str =
       (code:checksum':[]) = splitOn "[" lastPart
       checksum = reverse $ tail $ reverse checksum'
   in (name, read code, checksum)
-
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
 
 decrypt :: Int -> String -> String
 decrypt i = map (shift i)

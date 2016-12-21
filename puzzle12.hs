@@ -3,6 +3,8 @@ import Data.List.Split
 import qualified Data.Map as M
 import Data.Maybe
 
+import Utils
+
 
 type Register = Char
 
@@ -95,14 +97,6 @@ parse = map (parseInstr . splitOn " ")
     parseSrc src = if elem (head src) registers
                     then SRegister $ parseReg src
                     else SValue $ read src
-
-readLines :: IO [String]
-readLines =
-  getLine >>=
-  \s ->
-     case s of
-       "" -> pure []
-       _ -> fmap (s :) readLines
 
 readProgram :: IO Program
 readProgram = fmap parse readLines

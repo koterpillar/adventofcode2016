@@ -16,5 +16,6 @@ library
   build-depends:       base >3 && <5
                      , containers
                      , cryptonite
+                     , split
                      , utf8-string
   hs-source-dirs:      .
