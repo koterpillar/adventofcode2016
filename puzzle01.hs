@@ -2,13 +2,8 @@ import Control.Monad.Writer
 
 import Data.List.Split
 
+import Utils
 
-data Direction
-  = E
-  | S
-  | W
-  | N
-  deriving (Ord, Eq, Enum, Show)
 
 data Turn
   = L
@@ -27,7 +22,7 @@ turns = map mkTurn . splitOn ", "
     mkTurn (turn:walk) = (readTurn turn, read walk)
 
 data Coordinate = Coo
-  { cd :: Direction
+  { cd :: Direction4
   , cx :: Int
   , cy :: Int
   }
@@ -57,7 +52,7 @@ go (turn, walk) = goWalk walk . goTurn turn
 goTurn :: Turn -> Coordinate -> Coordinate
 goTurn turn (Coo d x y) = Coo (doTurn turn d) x y
 
-doTurn :: Turn -> Direction -> Direction
+doTurn :: Turn -> Direction4 -> Direction4
 doTurn R N = E
 doTurn R d = succ d
 doTurn L E = N
