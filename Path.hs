@@ -36,3 +36,8 @@ levels posKey start =
         nextRoots =
           uniqBy (posKey . treeNode) (concatMap (map snd . treeBranches) roots)
         seen' = S.union seen $ S.fromList $ map treeNode nextRoots
+
+shortestPath :: (pos -> Bool) -> [[pos]] -> [[pos]]
+shortestPath success (thisLevel:rest)
+  | any success thisLevel = [filter success thisLevel]
+  | otherwise = [] : shortestPath success rest
