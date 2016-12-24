@@ -5,6 +5,8 @@ import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Set as S
 
+import Utils
+
 
 data Tree node edge = Tree
   { treeNode :: node
@@ -26,13 +28,6 @@ moveTree generate apply start = mtc start
 
 uniqBy :: Ord b => (a -> b) -> [a] -> [a]
 uniqBy key = M.elems . M.fromList . map (\a -> (key a, a))
-
-iterateWhile :: (a -> Bool) -> (a -> a) -> a -> [a]
-iterateWhile continue fn v
-  | continue v =
-    let v' = fn v
-    in v : iterateWhile continue fn v'
-  | otherwise = []
 
 levels :: (Ord pos, Ord key) => (pos -> key) -> Tree pos move -> [[pos]]
 levels posKey start =

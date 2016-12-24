@@ -25,3 +25,10 @@ walk E (Position2 x y) = Position2 (x + 1) y
 walk W (Position2 x y) = Position2 (x - 1) y
 walk N (Position2 x y) = Position2 x (y - 1)
 walk S (Position2 x y) = Position2 x (y + 1)
+
+iterateWhile :: (a -> Bool) -> (a -> a) -> a -> [a]
+iterateWhile continue fn v
+  | continue v =
+    let v' = fn v
+    in v : iterateWhile continue fn v'
+  | otherwise = []
