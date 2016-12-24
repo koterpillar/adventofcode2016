@@ -27,9 +27,17 @@ moveTree generate apply start = mtc start
 uniqBy :: Ord b => (a -> b) -> [a] -> [a]
 uniqBy key = M.elems . M.fromList . map (\a -> (key a, a))
 
+iterateWhile :: (a -> Bool) -> (a -> a) -> a -> [a]
+iterateWhile continue fn v
+  | continue v =
+    let v' = fn v
+    in v : iterateWhile continue fn v'
+  | otherwise = []
+
 levels :: (Ord pos, Ord key) => (pos -> key) -> Tree pos move -> [[pos]]
 levels posKey start =
-  map (map treeNode . fst) $ iterate (uncurry go) ([start], S.empty)
+  map (map treeNode . fst) $
+  iterateWhile (not . null . fst) (uncurry go) ([start], S.empty)
   where
     go roots seen = (nextRoots, seen')
       where

@@ -1,5 +1,7 @@
 import Control.Monad
 
+import Data.List
+
 import MD5
 import Path
 import Utils
@@ -32,7 +34,10 @@ sSuccess s = sPosition s == Position2 vaultSize vaultSize
 type Move = Direction4
 
 moves :: Situation -> [Move]
-moves = const [S, E, N, W]
+moves s =
+  if sSuccess s
+    then []
+    else [S, E, N, W]
 
 apply :: Situation -> Move -> Maybe Situation
 apply situation@(Situation _ pos steps) step = do
@@ -65,3 +70,6 @@ sPath = shortestPath sSuccess
 
 demo ::Situation
 demo = mkSituation "hijkl"
+
+longest :: [[Situation]] -> Int
+longest = maximum . findIndices (any sSuccess)
