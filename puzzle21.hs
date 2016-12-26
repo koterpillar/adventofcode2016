@@ -1,5 +1,6 @@
 import Data.List
 import Data.List.Split
+import Data.Maybe
 
 import Utils
 
@@ -80,9 +81,27 @@ execute (RotateOnLetter x) str = srotate (-i) str
       if li < 4
         then li + 1
         else li + 2
-
 execute (Reverse x y) str =
   take x str ++ reverse (take (y - x + 1) $ drop x str) ++ drop (y + 1) str
 execute (Move x y) str =
   let (l, str') = sremove x str
   in sinsert y l str'
+
+
+executeReverse :: Operation -> String -> String
+executeReverse op@(SwapPositions _ _) str = execute op str
+executeReverse op@(SwapLetters _ _) str = execute op str
+executeReverse (RotateLeft i) str = execute (RotateRight i) str
+executeReverse (RotateRight i) str = execute (RotateLeft i) str
+executeReverse op@(Reverse _ _) str = execute op str
+executeReverse op@(Move x y) str = execute (Move y x) str
+
+-- Cheating!
+executeReverse (RotateOnLetter x) str =
+  fromJust $
+  listToMaybe
+    [ candidate
+    | candidate <-
+       [ srotate i str
+       | i <- [0 .. length str - 1] ]
+    , execute (RotateOnLetter x) candidate == str ]
