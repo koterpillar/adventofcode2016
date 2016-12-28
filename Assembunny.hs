@@ -86,18 +86,27 @@ step :: Computer -> Computer
 step c = apply (drop (cIP c) (cProgram c)) c
   where
     apply :: [Instruction] -> Computer -> Computer
+    -- optimize: c = V; inc a; dec c; jnc c -2; dec d; jnz d -5 to a += V * d; c = 0; d = 0
+    apply (instr1@(Copy v (SRegister rC1)):(Inc (SRegister rA1)):(Dec (SRegister rC2)):(Jnz (SRegister rC3) (SValue (-2))):(Dec (SRegister rD1)):(Jnz (SRegister rD2) (SValue (-5))):_)
+      | rC1 == rC2 && rC2 == rC3 && rD1 == rD2 =
+        nonmodifying $
+        \(regs, ip) ->
+           ( M.insert rA1 (peek rA1 regs + peek rD1 regs * eval v regs) $
+             M.insert rC1 0 $ M.insert rD1 0 $ regs
+           , ip + 6)
+      | otherwise = apply [instr1]
     apply (Copy src (SRegister dest):_) =
       nflow $ \regs -> M.insert dest (eval src regs) regs
     -- invalid copy instruction as a result of a toggle
     apply (Copy src _:_) = nflow id
     -- optimize a loop of: inc a; dec b; jnz b -2 to adding b to a and zeroing it
-    apply ((Inc (SRegister r1)):(Dec (SRegister r2)):(Jnz (SRegister r3) (SValue (-2))):_)
-      | r2 == r3 =
+    apply (instr1@(Inc (SRegister rA)):(Dec (SRegister rB1)):(Jnz (SRegister rB2) (SValue (-2))):_)
+      | rB1 == rB2 =
         nonmodifying $
         \(regs, ip) ->
-           ( M.insert r1 (peek r1 regs + peek r2 regs) $ M.insert r2 0 $ regs
+           ( M.insert rA (peek rA regs + peek rB1 regs) $ M.insert rB1 0 $ regs
            , ip + 3)
-      | otherwise = apply [Inc (SRegister r1)]
+      | otherwise = apply [instr1]
     apply (Inc (SRegister reg):_) = nflow $ M.adjust succ reg
     apply (Dec (SRegister reg):_) = nflow $ M.adjust pred reg
     -- invalid inc/dec instruction as a result of a toggle
