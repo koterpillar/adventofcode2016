@@ -118,3 +118,11 @@ mSuccess map = mAllTargets map == mVisited map
 
 mShortestPath :: [[Map]] -> [[Map]]
 mShortestPath = shortestPath mSuccess
+
+mSuccess2 :: Map -> Bool
+mSuccess2 map = mSuccess map && currentCell == Target 0
+  where
+    (Just currentCell) = M.lookup (mPosition map) (mCells map)
+
+mShortestPath2 :: [[Map]] -> [[Map]]
+mShortestPath2 = shortestPath mSuccess2
