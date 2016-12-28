@@ -26,6 +26,7 @@ data Instruction
   | Jnz Expr
         Expr
   | Toggle Expr
+  | Out Expr
   deriving (Ord, Eq, Show)
 
 type Registers = M.Map Register Value
@@ -38,7 +39,7 @@ data Computer = Computer
   { cRegisters :: Registers
   , cProgram :: Program
   , cIP :: Address
-  } deriving (Show)
+  } deriving (Eq, Ord, Show)
 
 registers :: [Register]
 registers = "abcd"
@@ -49,11 +50,11 @@ boot instructions = Computer (M.fromList $ zip registers (repeat 0)) instruction
 stopped :: Computer -> Bool
 stopped (Computer _ program ip) = ip >= length program
 
-nflow :: (Registers -> Registers) -> Computer -> Computer
-nflow f (Computer r p i) = Computer (f r) p (i + 1)
+nflow :: (Registers -> Registers) -> Computer -> (Computer, Maybe Value)
+nflow f (Computer r p i) = (Computer (f r) p (i + 1), Nothing)
 
-nonmodifying :: ((Registers, Address) -> (Registers, Address)) -> Computer -> Computer
-nonmodifying f (Computer r p i) = let (r', i') = f (r, i) in Computer r' p i'
+nonmodifying :: ((Registers, Address) -> (Registers, Address)) -> Computer -> (Computer, Maybe Value)
+nonmodifying f (Computer r p i) = let (r', i') = f (r, i) in (Computer r' p i', Nothing)
 
 peek :: Register -> Registers -> Value
 peek reg = fromJust . M.lookup reg
@@ -71,21 +72,25 @@ toggle :: Instruction -> Instruction
 toggle (Copy s d) = Jnz s d
 toggle (Inc r) = Dec r
 toggle (Dec r) = Inc r
+toggle (Out r) = Inc r
 toggle (Jnz s d) = Copy s d
 toggle (Toggle r) = Inc r
 
-toggleC :: Int -> Computer -> Computer
+toggleC :: Int -> Computer -> (Computer, Maybe Value)
 toggleC index c@(Computer regs program ip)
   | index < 0 = nflow id c
   | index >= length program = nflow id c
   | otherwise =
     let program' = sset index (toggle (program !! index)) program
-    in Computer regs program' (ip + 1)
+    in (Computer regs program' (ip + 1), Nothing)
 
 step :: Computer -> Computer
-step c = apply (drop (cIP c) (cProgram c)) c
+step = fst . step'
+
+step' :: Computer -> (Computer, Maybe Value)
+step' c = apply (drop (cIP c) (cProgram c)) c
   where
-    apply :: [Instruction] -> Computer -> Computer
+    apply :: [Instruction] -> Computer -> (Computer, Maybe Value)
     -- optimize: c = V; inc a; dec c; jnc c -2; dec d; jnz d -5 to a += V * d; c = 0; d = 0
     apply (instr1@(Copy v (SRegister rC1)):(Inc (SRegister rA1)):(Dec (SRegister rC2)):(Jnz (SRegister rC3) (SValue (-2))):(Dec (SRegister rD1)):(Jnz (SRegister rD2) (SValue (-5))):_)
       | rC1 == rC2 && rC2 == rC3 && rD1 == rD2 =
@@ -122,6 +127,10 @@ step c = apply (drop (cIP c) (cProgram c)) c
       \c@(Computer regs _ ip) ->
          let instr = ip + eval dest regs
          in toggleC instr c
+    apply (Out expr:_) =
+      \c@(Computer regs _ ip) ->
+         let value = eval expr regs
+         in (fst $ nflow id c, Just value)
 
 run :: Computer -> Computer
 run = head . dropWhile (not . stopped) . iterate step
@@ -134,6 +143,7 @@ parse = map (parseInstr . splitOn " ")
     parseInstr ["dec", reg] = Dec $ parseExpr reg
     parseInstr ["jnz", src, dst] = Jnz (parseExpr src) (parseExpr dst)
     parseInstr ["tgl", offset] = Toggle (parseExpr offset)
+    parseInstr ["out", expr] = Out $ parseExpr expr
     parseReg (r:[]) = r
     parseReg e = error $ e ++ " is not a register"
     parseExpr src =
