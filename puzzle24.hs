@@ -18,7 +18,8 @@ data Map = Map { mCells :: M.Map Position2 Cell
                , mPosition :: Position2
                , mVisited :: S.Set TargetIndex
                , mAllTargets :: S.Set TargetIndex
-               , mSize :: Position2 } deriving (Eq, Ord)
+               , mVisitedCells :: S.Set Position2
+               , mSize :: Position2 }
 
 mInside :: Map -> Position2 -> Bool
 mInside m pos =
@@ -34,9 +35,13 @@ instance Show Map where
     where
       showLine y = map (showCell y) [0 .. pX (mSize m)]
       showCell y x =
-        let (Just cell) = M.lookup (Position2 x y) (mCells m)
+        let pos = Position2 x y
+            (Just cell) = M.lookup pos (mCells m)
         in case cell of
-             Open -> '.'
+             Open ->
+               if S.member pos (mVisitedCells m)
+                 then '+'
+                 else '.'
              Wall -> '#'
              Target i -> showDigit i
       visitedLine = map showDigit $ S.toList $ mVisited m
@@ -51,8 +56,9 @@ mkMap cells =
   Map
     cells
     startingPoint
-    S.empty
+    (S.singleton 0)
     allTargets
+    S.empty
     (Position2 (maximum $ map pX indices) (maximum $ map pY indices))
   where
     indices = M.keys cells
@@ -86,15 +92,26 @@ apply move map = do
   cell <- M.lookup pos' (mCells map)
   guard (cell /= Wall)
   let visited = mVisited map
-  let visited' = case cell of Open -> visited
-                              Target i -> S.insert i visited
-  pure $ map { mPosition = pos', mVisited = visited' }
+  let visited' =
+        case cell of
+          Open -> visited
+          Target i -> S.insert i visited
+  let visitedCells = S.insert pos' $ mVisitedCells map
+  pure $
+    map
+    { mPosition = pos'
+    , mVisited = visited'
+    , mVisitedCells = visitedCells
+    }
 
 mMoveTree :: Map -> Tree Map Move
 mMoveTree = moveTree moves apply
 
+mKey :: Map -> (Position2, S.Set TargetIndex)
+mKey map = (mPosition map, mVisited map)
+
 mLevels :: Tree Map Move -> [[Map]]
-mLevels = levels id
+mLevels = levels mKey
 
 mSuccess :: Map -> Bool
 mSuccess map = mAllTargets map == mVisited map
