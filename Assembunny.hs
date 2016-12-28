@@ -11,28 +11,33 @@ type Register = Char
 
 type Value = Int
 
-data Source
+data Expr
   = SRegister Register
   | SValue Value
   deriving (Eq, Ord, Show)
 
+type Offset = Int
+
 data Instruction
-  = Copy Source
-         Register
-  | Inc Register
-  | Dec Register
-  | Jnz Source
-        Int
+  = Copy Expr
+         Expr
+  | Inc Expr
+  | Dec Expr
+  | Jnz Expr
+        Expr
+  | Toggle Expr
   deriving (Ord, Eq, Show)
 
 type Registers = M.Map Register Value
 
 type Program = [Instruction]
 
+type Address = Int
+
 data Computer = Computer
   { cRegisters :: Registers
   , cProgram :: Program
-  , cIP :: Int
+  , cIP :: Address
   } deriving (Show)
 
 registers :: [Register]
@@ -44,8 +49,11 @@ boot instructions = Computer (M.fromList $ zip registers (repeat 0)) instruction
 stopped :: Computer -> Bool
 stopped (Computer _ program ip) = ip >= length program
 
-nflow :: (a -> a) -> (a, Int) -> (a, Int)
-nflow f (r, i) = (f r, i + 1)
+nflow :: (Registers -> Registers) -> Computer -> Computer
+nflow f (Computer r p i) = Computer (f r) p (i + 1)
+
+nonmodifying :: ((Registers, Address) -> (Registers, Address)) -> Computer -> Computer
+nonmodifying f (Computer r p i) = let (r', i') = f (r, i) in Computer r' p i'
 
 peek :: Register -> Registers -> Value
 peek reg = fromJust . M.lookup reg
@@ -53,32 +61,58 @@ peek reg = fromJust . M.lookup reg
 pokeC :: Register -> Value -> Computer -> Computer
 pokeC r v c = c { cRegisters = M.insert r v (cRegisters c) }
 
-eval :: Source -> Registers -> Value
+eval :: Expr -> Registers -> Value
 eval src regs =
   case src of
     (SValue val) -> val
     (SRegister reg) -> peek reg regs
 
+toggle :: Instruction -> Instruction
+toggle (Copy s d) = Jnz s d
+toggle (Inc r) = Dec r
+toggle (Dec r) = Inc r
+toggle (Jnz s d) = Copy s d
+toggle (Toggle r) = Inc r
+
+toggleC :: Int -> Computer -> Computer
+toggleC index c@(Computer regs program ip)
+  | index < 0 = nflow id c
+  | index >= length program = nflow id c
+  | otherwise =
+    let program' = sset index (toggle (program !! index)) program
+    in Computer regs program' (ip + 1)
+
 step :: Computer -> Computer
-step c@(Computer regs program ip) = Computer regs' program ip'
+step c = apply (drop (cIP c) (cProgram c)) c
   where
-    (regs', ip') = apply (drop ip program) (regs, ip)
-    apply :: [Instruction] -> (Registers, Int) -> (Registers, Int)
-    apply (Copy src dest:_) = nflow $ \regs -> M.insert dest (eval src regs) regs
+    apply :: [Instruction] -> Computer -> Computer
+    apply (Copy src (SRegister dest):_) =
+      nflow $ \regs -> M.insert dest (eval src regs) regs
+    -- invalid copy instruction as a result of a toggle
+    apply (Copy src _:_) = nflow id
     -- optimize a loop of: inc a; dec b; jnz b -2 to adding b to a and zeroing it
-    apply ((Inc r1):(Dec r2):(Jnz (SRegister r3) (-2)):_)
+    apply ((Inc (SRegister r1)):(Dec (SRegister r2)):(Jnz (SRegister r3) (SValue (-2))):_)
       | r2 == r3 =
+        nonmodifying $
         \(regs, ip) ->
            ( M.insert r1 (peek r1 regs + peek r2 regs) $ M.insert r2 0 $ regs
            , ip + 3)
-      | otherwise = apply [Inc r1]
-    apply (Inc reg:_) = nflow $ M.adjust succ reg
-    apply (Dec reg:_) = nflow $ M.adjust pred reg
-    apply (Jnz src offset:_) =
+      | otherwise = apply [Inc (SRegister r1)]
+    apply (Inc (SRegister reg):_) = nflow $ M.adjust succ reg
+    apply (Dec (SRegister reg):_) = nflow $ M.adjust pred reg
+    -- invalid inc/dec instruction as a result of a toggle
+    apply (Inc _:_) = nflow id
+    apply (Dec _:_) = nflow id
+    apply (Jnz src dest:_) =
+      nonmodifying $
       \(regs, ip) ->
          if eval src regs == 0
            then (regs, succ ip)
-           else (regs, ip + offset)
+           else (regs, ip + eval dest regs)
+    apply (Toggle dest:_) =
+      \c@(Computer regs _ ip) ->
+         let instr = ip + eval dest regs
+         in toggleC instr c
 
 run :: Computer -> Computer
 run = head . dropWhile (not . stopped) . iterate step
@@ -86,15 +120,17 @@ run = head . dropWhile (not . stopped) . iterate step
 parse :: [String] -> Program
 parse = map (parseInstr . splitOn " ")
   where
-    parseInstr ["cpy", src, dst] = Copy (parseSrc src) (parseReg dst)
-    parseInstr ["inc", reg] = Inc $ parseReg reg
-    parseInstr ["dec", reg] = Dec $ parseReg reg
-    parseInstr ["jnz", src, offset] = Jnz (parseSrc src) (read offset)
+    parseInstr ["cpy", src, dst] = Copy (parseExpr src) (parseExpr dst)
+    parseInstr ["inc", reg] = Inc $ parseExpr reg
+    parseInstr ["dec", reg] = Dec $ parseExpr reg
+    parseInstr ["jnz", src, dst] = Jnz (parseExpr src) (parseExpr dst)
+    parseInstr ["tgl", offset] = Toggle (parseExpr offset)
     parseReg (r:[]) = r
     parseReg e = error $ e ++ " is not a register"
-    parseSrc src = if elem (head src) registers
-                    then SRegister $ parseReg src
-                    else SValue $ read src
+    parseExpr src =
+      if elem (head src) registers
+        then SRegister $ parseReg src
+        else SValue $ read src
 
 readProgram :: IO Program
 readProgram = fmap parse readLines

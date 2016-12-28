@@ -47,15 +47,6 @@ demo =
     , "rotate based on position of letter d"
     ]
 
-sset :: Int -> a -> [a] -> [a]
-sset idx val lst = take idx lst ++ [val] ++ drop (idx + 1) lst
-
-sremove :: Int -> [a] -> (a, [a])
-sremove idx lst = (lst !! idx, take idx lst ++ drop (idx + 1) lst)
-
-sinsert :: Int -> a -> [a] -> [a]
-sinsert idx val lst = take idx lst ++ [val] ++ drop idx lst
-
 srotate :: Int -> [a] -> [a]
 srotate amt lst =
   let amt' = amt `mod` length lst
